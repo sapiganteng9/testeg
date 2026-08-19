@@ -1,0 +1,681 @@
+-- ============================================
+-- SCARY BAZAAR - COMPLETE DUPE SCRIPT v2.2
+-- Money + Items + Unlimited Inventory + GUI
+-- CORRECTED: Duma -> Dupa
+-- ============================================
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+-- Variables
+local scriptActive = true
+local dupeActive = false
+local autoFarmActive = false
+local itemsDuplicated = 0
+local moneyDuplicated = 0
+
+-- ===== GUI SETUP =====
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "ScaryBazaarDupeGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Main Frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 550, 0, 750)
+mainFrame.Position = UDim2.new(0.5, -275, 0.5, -375)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+
+-- Add corner radius (if supported)
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = mainFrame
+
+-- Shadow effect
+local shadow = Instance.new("Frame")
+shadow.Name = "Shadow"
+shadow.Size = UDim2.new(1, 10, 1, 10)
+shadow.Position = UDim2.new(0, -5, 0, -5)
+shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+shadow.BorderSizePixel = 0
+shadow.BackgroundTransparency = 0.8
+shadow.Parent = mainFrame
+shadow.ZIndex = -1
+
+-- ===== TITLE BAR =====
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 50)
+titleBar.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 10)
+titleCorner.Parent = titleBar
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "TitleLabel"
+titleLabel.Size = UDim2.new(0.8, 0, 1, 0)
+titleLabel.Position = UDim2.new(0, 15, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "🎃 SCARY BAZAAR DUPE v2.2"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 18
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = titleBar
+
+-- Close Button
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
+closeButton.Size = UDim2.new(0, 40, 0, 40)
+closeButton.Position = UDim2.new(1, -45, 0, 5)
+closeButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+closeButton.Text = "✕"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.TextSize = 18
+closeButton.Font = Enum.Font.GothamBold
+closeButton.BorderSizePixel = 0
+closeButton.Parent = titleBar
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 5)
+closeCorner.Parent = closeButton
+
+closeButton.MouseButton1Click:Connect(function()
+    mainFrame.Visible = false
+end)
+
+closeButton.MouseEnter:Connect(function()
+    closeButton.BackgroundColor3 = Color3.fromRGB(255, 40, 40)
+end)
+
+closeButton.MouseLeave:Connect(function()
+    closeButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+end)
+
+-- ===== INFO SECTION =====
+local infoFrame = Instance.new("Frame")
+infoFrame.Name = "InfoFrame"
+infoFrame.Size = UDim2.new(1, -20, 0, 110)
+infoFrame.Position = UDim2.new(0, 10, 0, 60)
+infoFrame.BackgroundColor3 = Color3.fromRGB(30, 40, 60)
+infoFrame.BorderSizePixel = 0
+infoFrame.Parent = mainFrame
+
+local infoCorner = Instance.new("UICorner")
+infoCorner.CornerRadius = UDim.new(0, 8)
+infoCorner.Parent = infoFrame
+
+-- Status
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Name = "StatusLabel"
+statusLabel.Size = UDim2.new(1, -10, 0, 25)
+statusLabel.Position = UDim2.new(0, 5, 0, 5)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "💰 Status: Ready"
+statusLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+statusLabel.TextSize = 14
+statusLabel.Font = Enum.Font.GothamBold
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel.Parent = infoFrame
+
+-- Items Counter
+local itemsLabel = Instance.new("TextLabel")
+itemsLabel.Name = "ItemsLabel"
+itemsLabel.Size = UDim2.new(1, -10, 0, 25)
+itemsLabel.Position = UDim2.new(0, 5, 0, 30)
+itemsLabel.BackgroundTransparency = 1
+itemsLabel.Text = "📦 Items Duplicated: 0"
+itemsLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+itemsLabel.TextSize = 14
+itemsLabel.Font = Enum.Font.GothamBold
+itemsLabel.TextXAlignment = Enum.TextXAlignment.Left
+itemsLabel.Parent = infoFrame
+
+-- Money Counter
+local moneyLabel = Instance.new("TextLabel")
+moneyLabel.Name = "MoneyLabel"
+moneyLabel.Size = UDim2.new(1, -10, 0, 25)
+moneyLabel.Position = UDim2.new(0, 5, 0, 55)
+moneyLabel.BackgroundTransparency = 1
+moneyLabel.Text = "💵 Money Duped: 0"
+moneyLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+moneyLabel.TextSize = 14
+moneyLabel.Font = Enum.Font.GothamBold
+moneyLabel.TextXAlignment = Enum.TextXAlignment.Left
+moneyLabel.Parent = infoFrame
+
+-- Last Action
+local actionLabel = Instance.new("TextLabel")
+actionLabel.Name = "ActionLabel"
+actionLabel.Size = UDim2.new(1, -10, 0, 25)
+actionLabel.Position = UDim2.new(0, 5, 0, 80)
+actionLabel.BackgroundTransparency = 1
+actionLabel.Text = "⏱️ Last Action: None"
+actionLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+actionLabel.TextSize = 14
+actionLabel.Font = Enum.Font.GothamBold
+actionLabel.TextXAlignment = Enum.TextXAlignment.Left
+actionLabel.Parent = infoFrame
+
+-- ===== SCROLL FRAME FOR BUTTONS =====
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Name = "ScrollFrame"
+scrollFrame.Size = UDim2.new(1, -20, 0, 570)
+scrollFrame.Position = UDim2.new(0, 10, 0, 180)
+scrollFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+scrollFrame.BorderSizePixel = 0
+scrollFrame.ScrollBarThickness = 8
+scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 120)
+scrollFrame.BottomImage = ""
+scrollFrame.TopImage = ""
+scrollFrame.MidImage = ""
+scrollFrame.Parent = mainFrame
+
+local scrollCorner = Instance.new("UICorner")
+scrollCorner.CornerRadius = UDim.new(0, 8)
+scrollCorner.Parent = scrollFrame
+
+scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 1200)
+
+-- ===== HELPER FUNCTIONS =====
+
+local function updateStatus(text)
+    statusLabel.Text = "💰 Status: " .. text
+end
+
+local function updateItems(count)
+    itemsDuplicated = itemsDuplicated + count
+    itemsLabel.Text = "📦 Items Duplicated: " .. itemsDuplicated
+end
+
+local function updateMoney(count)
+    moneyDuplicated = moneyDuplicated + count
+    moneyLabel.Text = "💵 Money Duped: " .. moneyDuplicated
+end
+
+local function updateAction(text)
+    actionLabel.Text = "⏱️ Last Action: " .. text
+end
+
+local function createSection(title, icon, position)
+    local section = Instance.new("TextLabel")
+    section.Name = "Section"
+    section.Size = UDim2.new(1, -10, 0, 35)
+    section.Position = position
+    section.BackgroundColor3 = Color3.fromRGB(255, 120, 0)
+    section.Text = icon .. " " .. title
+    section.TextColor3 = Color3.fromRGB(255, 255, 255)
+    section.TextSize = 14
+    section.Font = Enum.Font.GothamBold
+    section.BorderSizePixel = 0
+    section.Parent = scrollFrame
+    
+    local sectionCorner = Instance.new("UICorner")
+    sectionCorner.CornerRadius = UDim.new(0, 6)
+    sectionCorner.Parent = section
+    
+    return section
+end
+
+local function createButton(text, position, color, callback)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, -10, 0, 50)
+    button.Position = position
+    button.BackgroundColor3 = color
+    button.Text = text
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.TextSize = 13
+    button.Font = Enum.Font.GothamBold
+    button.BorderSizePixel = 0
+    button.Parent = scrollFrame
+    
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 6)
+    btnCorner.Parent = button
+    
+    local btnPadding = Instance.new("UIPadding")
+    btnPadding.PaddingLeft = UDim.new(0, 10)
+    btnPadding.PaddingRight = UDim.new(0, 10)
+    btnPadding.Parent = button
+    
+    button.MouseButton1Click:Connect(function()
+        button.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
+        task.wait(0.2)
+        button.BackgroundColor3 = color
+        callback()
+    end)
+    
+    button.MouseEnter:Connect(function()
+        button.BackgroundTransparency = 0.1
+    end)
+    
+    button.MouseLeave:Connect(function()
+        button.BackgroundTransparency = 0
+    end)
+    
+    return button
+end
+
+-- ===== REMOTE FUNCTIONS =====
+
+local function getRemoteFolder()
+    for _, v in pairs(ReplicatedStorage:GetChildren()) do
+        if v:IsA("Folder") and v.Name:match("r%x+") then
+            for _, remote in pairs(v:GetChildren()) do
+                if remote:IsA("RemoteFunction") then
+                    return v
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- ===== DUPE FUNCTIONS =====
+
+local function dupeBibitItems()
+    updateStatus("🔄 Scanning Bibit items...")
+    
+    local folder = getRemoteFolder()
+    if not folder then
+        updateStatus("❌ Error: Folder not found!")
+        return
+    end
+    
+    local bibitsRemote = nil
+    
+    -- Cari bibit remote
+    for _, remote in pairs(folder:GetChildren()) do
+        if remote:IsA("RemoteFunction") then
+            local success = pcall(function()
+                local result = remote:InvokeServer("BibitPisang")
+                if result and result.ok then
+                    bibitsRemote = remote
+                    return true
+                end
+            end)
+            if bibitsRemote then break end
+        end
+    end
+    
+    if not bibitsRemote then
+        updateStatus("❌ Error: Bibit remote not found!")
+        return
+    end
+    
+    updateStatus("⏳ Duplicating Bibit...")
+    
+    -- Hanya 3 Bibit yang tersedia
+    local bibits = {
+        "BibitPisang",
+        "BibitKamboja",
+        "BibitMelati"
+    }
+    
+    local totalDuplicated = 0
+    
+    for _, bibitName in pairs(bibits) do
+        pcall(function()
+            for i = 1, 20 do -- Duplikat 20x setiap bibit
+                local result = bibitsRemote:InvokeServer(bibitName)
+                if result and result.ok then
+                    totalDuplicated = totalDuplicated + 1
+                end
+                task.wait(0.05)
+            end
+        end)
+    end
+    
+    updateItems(totalDuplicated)
+    updateStatus("✅ Duplicated " .. totalDuplicated .. " Bibit!")
+    updateAction("Bibit Duplication Complete")
+end
+
+local function dupeSpawnItems()
+    updateStatus("🔄 Scanning Spawn items...")
+    
+    local folder = getRemoteFolder()
+    if not folder then
+        updateStatus("❌ Error: Folder not found!")
+        return
+    end
+    
+    local spawnRemote = nil
+    
+    -- Cari spawn item remote (test dengan semua item spawn)
+    local spawnItems = {"Kemenyan", "KepitingSungai", "Dupa", "JamurKuburan", "Gagak"}
+    
+    for _, remote in pairs(folder:GetChildren()) do
+        if remote:IsA("RemoteFunction") then
+            for _, itemName in pairs(spawnItems) do
+                local success = pcall(function()
+                    local result = remote:InvokeServer(itemName)
+                    if result and result.ok then
+                        spawnRemote = remote
+                        return true
+                    end
+                end)
+                if spawnRemote then break end
+            end
+            if spawnRemote then break end
+        end
+    end
+    
+    if not spawnRemote then
+        updateStatus("❌ Error: Spawn remote not found!")
+        return
+    end
+    
+    updateStatus("⏳ Duplicating Spawn items...")
+    
+    -- Spawn items (harus di-pickup dari map) - CORRECTED: Duma -> Dupa
+    local spawnItemsList = {
+        "Kemenyan",
+        "KepitingSungai",
+        "Dupa",
+        "JamurKuburan",
+        "Gagak"
+    }
+    
+    local totalDuplicated = 0
+    
+    for _, itemName in pairs(spawnItemsList) do
+        pcall(function()
+            for i = 1, 15 do -- Duplikat 15x setiap spawn item
+                local result = spawnRemote:InvokeServer(itemName)
+                if result and result.ok then
+                    totalDuplicated = totalDuplicated + 1
+                end
+                task.wait(0.05)
+            end
+        end)
+    end
+    
+    updateItems(totalDuplicated)
+    updateStatus("✅ Duplicated " .. totalDuplicated .. " Spawn Items!")
+    updateAction("Spawn Items Duplication Complete")
+end
+
+local function dupeAllItems()
+    updateStatus("🔄 Duplicating ALL items...")
+    
+    dupeBibitItems()
+    task.wait(1)
+    dupeSpawnItems()
+    
+    updateStatus("✅ All items duplicated!")
+    updateAction("Full Duplication Complete")
+end
+
+local function dupeMoneyV1()
+    updateStatus("💵 Money Dupe v1 running...")
+    
+    local folder = getRemoteFolder()
+    if not folder then
+        updateStatus("❌ Error: Folder not found!")
+        return
+    end
+    
+    local moneyEarned = 0
+    
+    -- Cari dan invoke semua remote dengan jual
+    for i = 1, 20 do
+        for _, remote in pairs(folder:GetChildren()) do
+            if remote:IsA("RemoteFunction") then
+                pcall(function()
+                    remote:InvokeServer("jualBabi", {id = "54ddfe3a"})
+                    moneyEarned = moneyEarned + 100
+                end)
+            end
+        end
+        task.wait(0.2)
+    end
+    
+    updateMoney(moneyEarned)
+    updateStatus("✅ Money Dupe v1 Complete!")
+    updateAction("Money Dupe Method 1 (" .. moneyEarned .. " coins)")
+end
+
+local function dupeMoneyV2()
+    updateStatus("💵 Money Dupe v2 running...")
+    
+    local folder = getRemoteFolder()
+    if not folder then
+        updateStatus("❌ Error: Folder not found!")
+        return
+    end
+    
+    local moneyEarned = 0
+    
+    -- Gunakan banyak item ID
+    local itemIds = {"54ddfe3a", "55ddfe3b", "56ddfe3c"}
+    
+    for i = 1, 30 do
+        for _, itemId in pairs(itemIds) do
+            for _, remote in pairs(folder:GetChildren()) do
+                if remote:IsA("RemoteFunction") then
+                    pcall(function()
+                        remote:InvokeServer("jualBabi", {id = itemId})
+                        moneyEarned = moneyEarned + 150
+                    end)
+                end
+            end
+        end
+        task.wait(0.15)
+    end
+    
+    updateMoney(moneyEarned)
+    updateStatus("✅ Money Dupe v2 Complete!")
+    updateAction("Money Dupe Method 2 (" .. moneyEarned .. " coins)")
+end
+
+local function speedHack()
+    updateStatus("⚡ Speed Hack enabled...")
+    
+    local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+    if humanoid then
+        humanoid.WalkSpeed = 150
+        updateStatus("✅ Speed: 150")
+        updateAction("Speed Hack Activated (150)")
+    end
+end
+
+local function infiniteJump()
+    updateStatus("🦗 Infinity Jump enabled...")
+    
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.KeyCode == Enum.KeyCode.Space then
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end
+    end)
+    
+    updateStatus("✅ Infinity Jump ON")
+    updateAction("Infinity Jump Enabled")
+end
+
+local function noFallDamage()
+    updateStatus("🛡️ No Fall Damage enabled...")
+    
+    local connection
+    connection = RunService.Heartbeat:Connect(function()
+        if LocalPlayer and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            local humanoid = LocalPlayer.Character.Humanoid
+            if humanoid.Health > 0 then
+                humanoid.Health = humanoid.MaxHealth
+            end
+        end
+    end)
+    
+    updateStatus("✅ No Fall Damage ON")
+    updateAction("No Fall Damage Enabled")
+end
+
+local function flyMode()
+    updateStatus("🚁 Fly mode enabled...")
+    
+    local character = LocalPlayer.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    local bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bodyVelocity.Parent = humanoidRootPart
+    
+    local bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    bodyGyro.P = 10000
+    bodyGyro.Parent = humanoidRootPart
+    
+    character.Humanoid.PlatformStand = true
+    
+    local speed = 50
+    local direction = Vector3.new(0, 0, 0)
+    
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.KeyCode == Enum.KeyCode.W then direction = direction + Vector3.new(0, 0, -1) end
+        if input.KeyCode == Enum.KeyCode.S then direction = direction + Vector3.new(0, 0, 1) end
+        if input.KeyCode == Enum.KeyCode.A then direction = direction + Vector3.new(-1, 0, 0) end
+        if input.KeyCode == Enum.KeyCode.D then direction = direction + Vector3.new(1, 0, 0) end
+        if input.KeyCode == Enum.KeyCode.Space then direction = direction + Vector3.new(0, 1, 0) end
+        if input.KeyCode == Enum.KeyCode.LeftControl then direction = direction + Vector3.new(0, -1, 0) end
+    end)
+    
+    RunService.RenderStepped:Connect(function()
+        if direction.Magnitude > 0 then
+            bodyVelocity.Velocity = direction.Unit * speed
+        else
+            bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        end
+        bodyGyro.CFrame = game.Workspace.CurrentCamera.CFrame
+    end)
+    
+    updateStatus("✅ Fly mode ON")
+    updateAction("Fly Mode Enabled (WASD + Space + Ctrl)")
+end
+
+local function clearStats()
+    itemsDuplicated = 0
+    moneyDuplicated = 0
+    itemsLabel.Text = "📦 Items Duplicated: 0"
+    moneyLabel.Text = "💵 Money Duped: 0"
+    statusLabel.Text = "💰 Status: Ready"
+    actionLabel.Text = "⏱️ Last Action: None"
+    updateStatus("Stats cleared")
+end
+
+-- ===== CREATE UI ELEMENTS =====
+
+local yPos = 0
+
+-- Money Dupe Section
+createSection("💵 MONEY DUPE", "💰", UDim2.new(0, 5, 0, yPos))
+yPos = yPos + 40
+
+createButton("💵 Money Dupe Method 1\n(Fast)", UDim2.new(0, 5, 0, yPos),
+    Color3.fromRGB(34, 177, 76), dupeMoneyV1)
+yPos = yPos + 55
+
+createButton("💵 Money Dupe Method 2\n(Very Fast)", UDim2.new(0, 5, 0, yPos),
+    Color3.fromRGB(34, 177, 76), dupeMoneyV2)
+yPos = yPos + 55
+
+-- Bibit Dupe Section
+createSection("🌱 BIBIT DUPLICATION", "🌱", UDim2.new(0, 5, 0, yPos))
+yPos = yPos + 40
+
+createButton("🌱 Dupe All Bibit\n(Pisang, Kamboja, Melati)", UDim2.new(0, 5, 0, yPos),
+    Color3.fromRGB(66, 133, 244), dupeBibitItems)
+yPos = yPos + 55
+
+-- Spawn Items Section
+createSection("📦 SPAWN ITEMS DUPE", "🎁", UDim2.new(0, 5, 0, yPos))
+yPos = yPos + 40
+
+createButton("📦 Dupe All Spawn Items\n(Kemenyan, Kepiting, Dupa, dll)", UDim2.new(0, 5, 0, yPos),
+    Color3.fromRGB(66, 244, 133), dupeSpawnItems)
+yPos = yPos + 55
+
+-- All Items Section
+createSection("🎪 DUPE SEMUA", "🎊", UDim2.new(0, 5, 0, yPos))
+yPos = yPos + 40
+
+createButton("🎊 Dupe ALL Items\n(Bibit + Spawn)", UDim2.new(0, 5, 0, yPos),
+    Color3.fromRGB(244, 133, 66), dupeAllItems)
+yPos = yPos + 55
+
+-- Speed & Movement Section
+createSection("⚡ SPEED & MOVEMENT", "🏃", UDim2.new(0, 5, 0, yPos))
+yPos = yPos + 40
+
+createButton("⚡ Speed Hack\n(150x Speed)", UDim2.new(0, 5, 0, yPos),
+    Color3.fromRGB(255, 152, 0), speedHack)
+yPos = yPos + 55
+
+createButton("🦗 Infinity Jump\n(Hold Space)", UDim2.new(0, 5, 0, yPos),
+    Color3.fromRGB(255, 152, 0), infiniteJump)
+yPos = yPos + 55
+
+createButton("🛡️ No Fall Damage\n(Permanent)", UDim2.new(0, 5, 0, yPos),
+    Color3.fromRGB(255, 152, 0), noFallDamage)
+yPos = yPos + 55
+
+createButton("🚁 Fly Mode\n(WASD + Space + Ctrl)", UDim2.new(0, 5, 0, yPos),
+    Color3.fromRGB(255, 152, 0), flyMode)
+yPos = yPos + 55
+
+-- Settings Section
+createSection("⚙️ SETTINGS", "🔧", UDim2.new(0, 5, 0, yPos))
+yPos = yPos + 40
+
+createButton("🗑️ Clear Statistics\n(Reset Counters)", UDim2.new(0, 5, 0, yPos),
+    Color3.fromRGB(244, 67, 54), clearStats)
+yPos = yPos + 55
+
+-- ===== HOTKEYS =====
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.F6 then
+        mainFrame.Visible = not mainFrame.Visible
+    elseif input.KeyCode == Enum.KeyCode.F7 then
+        dupeAllItems()
+    elseif input.KeyCode == Enum.KeyCode.F8 then
+        dupeMoneyV1()
+    elseif input.KeyCode == Enum.KeyCode.F9 then
+        dupeMoneyV2()
+    end
+end)
+
+-- ===== STARTUP =====
+
+print("✅ Scary Bazaar Dupe Script v2.2 Loaded!")
+print("📖 HOTKEYS:")
+print("   F6 - Toggle GUI")
+print("   F7 - Dupe All Items")
+print("   F8 - Money Dupe v1")
+print("   F9 - Money Dupe v2")
+print("")
+print("📌 ITEM TYPES:")
+print("   🌱 BIBIT: BibitPisang, BibitKamboja, BibitMelati (3 items)")
+print("   📦 SPAWN: Kemenyan, KepitingSungai, Dupa, JamurKuburan, Gagak (5 items)")
+print("🎃 Enjoy!")
+
+updateStatus("Ready")
+updateAction("Script Loaded")
