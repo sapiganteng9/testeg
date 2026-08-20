@@ -1,0 +1,640 @@
+-- ============================================
+-- NGepet by. SAPIGANTENG
+-- ============================================
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+-- Variables
+local scriptActive = true
+local dupeActive = false
+local autoFarmActive = false
+local itemsDuplicated = 0
+local moneyDuplicated = 0
+
+-- ===== GUI SETUP =====
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "ScaryBazaarDupeGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Main Frame 
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 380, 0, 420)
+mainFrame.Position = UDim2.new(0.5, -190, 0.5, -210)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+
+-- Add corner radius
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = mainFrame
+
+-- Shadow effect
+local shadow = Instance.new("Frame")
+shadow.Name = "Shadow"
+shadow.Size = UDim2.new(1, 10, 1, 10)
+shadow.Position = UDim2.new(0, -5, 0, -5)
+shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+shadow.BorderSizePixel = 0
+shadow.BackgroundTransparency = 0.8
+shadow.Parent = mainFrame
+shadow.ZIndex = -1
+
+-- ===== TITLE BAR =====
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 40)
+titleBar.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 10)
+titleCorner.Parent = titleBar
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "TitleLabel"
+titleLabel.Size = UDim2.new(0.75, 0, 1, 0)
+titleLabel.Position = UDim2.new(0, 10, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "NGepet by. SAPIGANTENG"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 15
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = titleBar
+
+-- Minimize Button
+local minimizeButton = Instance.new("TextButton")
+minimizeButton.Name = "MinimizeButton"
+minimizeButton.Size = UDim2.new(0, 30, 0, 30)
+minimizeButton.Position = UDim2.new(1, -70, 0, 5)
+minimizeButton.BackgroundColor3 = Color3.fromRGB(255, 180, 60)
+minimizeButton.Text = "—"
+minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+minimizeButton.TextSize = 18
+minimizeButton.Font = Enum.Font.GothamBold
+minimizeButton.BorderSizePixel = 0
+minimizeButton.Parent = titleBar
+
+local minimizeCorner = Instance.new("UICorner")
+minimizeCorner.CornerRadius = UDim.new(0, 5)
+minimizeCorner.Parent = minimizeButton
+
+-- Close Button
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
+closeButton.Size = UDim2.new(0, 30, 0, 30)
+closeButton.Position = UDim2.new(1, -35, 0, 5)
+closeButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+closeButton.Text = "✕"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.TextSize = 16
+closeButton.Font = Enum.Font.GothamBold
+closeButton.BorderSizePixel = 0
+closeButton.Parent = titleBar
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 5)
+closeCorner.Parent = closeButton
+
+-- Minimize / Drag state variables
+local minimized = false
+local originalMainSize = mainFrame.Size
+local originalInfoVisible = true
+local originalScrollVisible = true
+
+minimizeButton.MouseButton1Click:Connect(function()
+    if not minimized then
+        -- Save state
+        originalMainSize = mainFrame.Size
+        originalInfoVisible = infoFrame.Visible
+        originalScrollVisible = scrollFrame.Visible
+
+        -- Minimize: keep only title bar visible
+        infoFrame.Visible = false
+        scrollFrame.Visible = false
+        mainFrame.Size = UDim2.new(mainFrame.Size.X.Scale, mainFrame.Size.X.Offset, 0, 40)
+        minimized = true
+    else
+        -- Restore
+        infoFrame.Visible = originalInfoVisible
+        scrollFrame.Visible = originalScrollVisible
+        mainFrame.Size = originalMainSize
+        minimized = false
+    end
+end)
+
+closeButton.MouseButton1Click:Connect(function()
+    mainFrame.Visible = false
+end)
+
+closeButton.MouseEnter:Connect(function()
+    closeButton.BackgroundColor3 = Color3.fromRGB(255, 40, 40)
+end)
+
+closeButton.MouseLeave:Connect(function()
+    closeButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+end)
+
+-- ===== INFO SECTION (COMPACT) =====
+local infoFrame = Instance.new("Frame")
+infoFrame.Name = "InfoFrame"
+infoFrame.Size = UDim2.new(1, -12, 0, 70)
+infoFrame.Position = UDim2.new(0, 6, 0, 50)
+infoFrame.BackgroundColor3 = Color3.fromRGB(30, 40, 60)
+infoFrame.BorderSizePixel = 0
+infoFrame.Parent = mainFrame
+
+local infoCorner = Instance.new("UICorner")
+infoCorner.CornerRadius = UDim.new(0, 8)
+infoCorner.Parent = infoFrame
+
+-- Status
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Name = "StatusLabel"
+statusLabel.Size = UDim2.new(1, -6, 0, 16)
+statusLabel.Position = UDim2.new(0, 3, 0, 3)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "💰 Status: Ready"
+statusLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+statusLabel.TextSize = 11
+statusLabel.Font = Enum.Font.GothamBold
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel.TextScaled = false
+statusLabel.Parent = infoFrame
+
+-- Items Counter
+local itemsLabel = Instance.new("TextLabel")
+itemsLabel.Name = "ItemsLabel"
+itemsLabel.Size = UDim2.new(1, -6, 0, 16)
+itemsLabel.Position = UDim2.new(0, 3, 0, 18)
+itemsLabel.BackgroundTransparency = 1
+itemsLabel.Text = "📦 Items: 0"
+itemsLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+itemsLabel.TextSize = 11
+itemsLabel.Font = Enum.Font.GothamBold
+itemsLabel.TextXAlignment = Enum.TextXAlignment.Left
+itemsLabel.TextScaled = false
+itemsLabel.Parent = infoFrame
+
+-- Money Counter
+local moneyLabel = Instance.new("TextLabel")
+moneyLabel.Name = "MoneyLabel"
+moneyLabel.Size = UDim2.new(1, -6, 0, 16)
+moneyLabel.Position = UDim2.new(0, 3, 0, 33)
+moneyLabel.BackgroundTransparency = 1
+moneyLabel.Text = "💵 Money: 0"
+moneyLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+moneyLabel.TextSize = 11
+moneyLabel.Font = Enum.Font.GothamBold
+moneyLabel.TextXAlignment = Enum.TextXAlignment.Left
+moneyLabel.TextScaled = false
+moneyLabel.Parent = infoFrame
+
+-- Last Action
+local actionLabel = Instance.new("TextLabel")
+actionLabel.Name = "ActionLabel"
+actionLabel.Size = UDim2.new(1, -6, 0, 16)
+actionLabel.Position = UDim2.new(0, 3, 0, 48)
+actionLabel.BackgroundTransparency = 1
+actionLabel.Text = "⏱️ Last: Script Loaded"
+actionLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+actionLabel.TextSize = 11
+actionLabel.Font = Enum.Font.GothamBold
+actionLabel.TextXAlignment = Enum.TextXAlignment.Left
+actionLabel.TextScaled = false
+actionLabel.Parent = infoFrame
+
+-- ===== SCROLL FRAME FOR BUTTONS (COMPACT) =====
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Name = "ScrollFrame"
+scrollFrame.Size = UDim2.new(1, -12, 0, 280)
+scrollFrame.Position = UDim2.new(0, 6, 0, 130)
+scrollFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+scrollFrame.BorderSizePixel = 0
+scrollFrame.ScrollBarThickness = 6
+scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 120)
+scrollFrame.BottomImage = ""
+scrollFrame.TopImage = ""
+scrollFrame.MidImage = ""
+scrollFrame.Parent = mainFrame
+
+local scrollCorner = Instance.new("UICorner")
+scrollCorner.CornerRadius = UDim.new(0, 8)
+scrollCorner.Parent = scrollFrame
+
+scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 450)
+
+-- ===== HELPER FUNCTIONS =====
+
+local function updateStatus(text)
+    statusLabel.Text = "💰 Status: " .. text
+end
+
+local function updateItems(count)
+    itemsDuplicated = itemsDuplicated + count
+    itemsLabel.Text = "📦 Items: " .. itemsDuplicated
+end
+
+local function updateMoney(count)
+    moneyDuplicated = moneyDuplicated + count
+    moneyLabel.Text = "💵 Money: " .. moneyDuplicated
+end
+
+local function updateAction(text)
+    actionLabel.Text = "⏱️ Last: " .. text
+end
+
+local function createSection(title, icon, position)
+    local section = Instance.new("TextLabel")
+    section.Name = "Section"
+    section.Size = UDim2.new(1, -8, 0, 24)
+    section.Position = position
+    section.BackgroundColor3 = Color3.fromRGB(255, 120, 0)
+    section.Text = icon .. " " .. title
+    section.TextColor3 = Color3.fromRGB(255, 255, 255)
+    section.TextSize = 11
+    section.Font = Enum.Font.GothamBold
+    section.BorderSizePixel = 0
+    section.Parent = scrollFrame
+    
+    local sectionCorner = Instance.new("UICorner")
+    sectionCorner.CornerRadius = UDim.new(0, 5)
+    sectionCorner.Parent = section
+    
+    return section
+end
+
+local function createButton(text, position, color, callback)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, -8, 0, 36)
+    button.Position = position
+    button.BackgroundColor3 = color
+    button.Text = text
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.TextSize = 11
+    button.Font = Enum.Font.GothamBold
+    button.BorderSizePixel = 0
+    button.Parent = scrollFrame
+    
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 5)
+    btnCorner.Parent = button
+    
+    local btnPadding = Instance.new("UIPadding")
+    btnPadding.PaddingLeft = UDim.new(0, 8)
+    btnPadding.PaddingRight = UDim.new(0, 8)
+    btnPadding.Parent = button
+    
+    button.MouseButton1Click:Connect(function()
+        button.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
+        task.wait(0.2)
+        button.BackgroundColor3 = color
+        callback()
+    end)
+    
+    button.MouseEnter:Connect(function()
+        button.BackgroundTransparency = 0.1
+    end)
+    
+    button.MouseLeave:Connect(function()
+        button.BackgroundTransparency = 0
+    end)
+    
+    return button
+end
+
+-- ===== REMOTE FUNCTIONS =====
+
+local function getRemoteFolder()
+    for _, v in pairs(ReplicatedStorage:GetChildren()) do
+        if v:IsA("Folder") and v.Name:match("r%x+") then
+            for _, remote in pairs(v:GetChildren()) do
+                if remote:IsA("RemoteFunction") then
+                    return v
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- ===== DUPE FUNCTIONS =====
+
+local function dupeBibitItems()
+    updateStatus("🔄 Scanning...")
+    
+    local folder = getRemoteFolder()
+    if not folder then
+        updateStatus("❌ Error!")
+        return
+    end
+    
+    local bibitsRemote = nil
+    
+    for _, remote in pairs(folder:GetChildren()) do
+        if remote:IsA("RemoteFunction") then
+            local success = pcall(function()
+                local result = remote:InvokeServer("BibitPisang")
+                if result and result.ok then
+                    bibitsRemote = remote
+                    return true
+                end
+            end)
+            if bibitsRemote then break end
+        end
+    end
+    
+    if not bibitsRemote then
+        updateStatus("❌ Error!")
+        return
+    end
+    
+    updateStatus("⏳ Duping...")
+    
+    local bibits = {
+        "BibitPisang",
+        "BibitKamboja",
+        "BibitMelati"
+    }
+    
+    local totalDuplicated = 0
+    
+    for _, bibitName in pairs(bibits) do
+        pcall(function()
+            for i = 1, 20 do
+                local result = bibitsRemote:InvokeServer(bibitName)
+                if result and result.ok then
+                    totalDuplicated = totalDuplicated + 1
+                end
+                task.wait(0.05)
+            end
+        end)
+    end
+    
+    updateItems(totalDuplicated)
+    updateStatus("✅ Done!")
+    updateAction("Bibit Complete")
+end
+
+local function dupeSpawnItems()
+    updateStatus("🔄 Scanning...")
+    
+    local folder = getRemoteFolder()
+    if not folder then
+        updateStatus("❌ Error!")
+        return
+    end
+    
+    local spawnRemote = nil
+    
+    local spawnItems = {"Kemenyan", "KepitingSungai", "Dupa", "JamurKuburan", "Gagak"}
+    
+    for _, remote in pairs(folder:GetChildren()) do
+        if remote:IsA("RemoteFunction") then
+            for _, itemName in pairs(spawnItems) do
+                local success = pcall(function()
+                    local result = remote:InvokeServer(itemName)
+                    if result and result.ok then
+                        spawnRemote = remote
+                        return true
+                    end
+                end)
+                if spawnRemote then break end
+            end
+            if spawnRemote then break end
+        end
+    end
+    
+    if not spawnRemote then
+        updateStatus("❌ Error!")
+        return
+    end
+    
+    updateStatus("⏳ Duping...")
+    
+    local spawnItemsList = {
+        "Kemenyan",
+        "KepitingSungai",
+        "Dupa",
+        "JamurKuburan",
+        "Gagak"
+    }
+    
+    local totalDuplicated = 0
+    
+    for _, itemName in pairs(spawnItemsList) do
+        pcall(function()
+            for i = 1, 15 do
+                local result = spawnRemote:InvokeServer(itemName)
+                if result and result.ok then
+                    totalDuplicated = totalDuplicated + 1
+                end
+                task.wait(0.05)
+            end
+        end)
+    end
+    
+    updateItems(totalDuplicated)
+    updateStatus("✅ Done!")
+    updateAction("Spawn Items Done")
+end
+
+local function dupeAllItems()
+    updateStatus("🔄 Duping ALL...")
+    
+    dupeBibitItems()
+    task.wait(1)
+    dupeSpawnItems()
+    
+    updateStatus("✅ Complete!")
+    updateAction("Full Dupe Done")
+end
+
+local function dupeMoneyV1()
+    updateStatus("💵 Running v1...")
+    
+    local folder = getRemoteFolder()
+    if not folder then
+        updateStatus("❌ Error!")
+        return
+    end
+    
+    local moneyEarned = 0
+    
+    for i = 1, 20 do
+        for _, remote in pairs(folder:GetChildren()) do
+            if remote:IsA("RemoteFunction") then
+                pcall(function()
+                    remote:InvokeServer("jualBabi", {id = "54ddfe3a"})
+                    moneyEarned = moneyEarned + 100
+                end)
+            end
+        end
+        task.wait(0.2)
+    end
+    
+    updateMoney(moneyEarned)
+    updateStatus("✅ Done!")
+    updateAction("Money v1 (" .. moneyEarned .. ")")
+end
+
+local function dupeMoneyV2()
+    updateStatus("💵 Running v2...")
+    
+    local folder = getRemoteFolder()
+    if not folder then
+        updateStatus("❌ Error!")
+        return
+    end
+    
+    local moneyEarned = 0
+    
+    local itemIds = {"54ddfe3a", "55ddfe3b", "56ddfe3c"}
+    
+    for i = 1, 30 do
+        for _, itemId in pairs(itemIds) do
+            for _, remote in pairs(folder:GetChildren()) do
+                if remote:IsA("RemoteFunction") then
+                    pcall(function()
+                        remote:InvokeServer("jualBabi", {id = itemId})
+                        moneyEarned = moneyEarned + 150
+                    end)
+                end
+            end
+        end
+        task.wait(0.15)
+    end
+    
+    updateMoney(moneyEarned)
+    updateStatus("✅ Done!")
+    updateAction("Money v2 (" .. moneyEarned .. ")")
+end
+
+local function clearStats()
+    itemsDuplicated = 0
+    moneyDuplicated = 0
+    itemsLabel.Text = "📦 Items: 0"
+    moneyLabel.Text = "💵 Money: 0"
+    statusLabel.Text = "💰 Status: Ready"
+    actionLabel.Text = "⏱️ Last: Cleared"
+    updateStatus("Ready")
+end
+
+-- ===== CREATE UI ELEMENTS (COMPACT) =====
+
+local yPos = 0
+
+-- Money Dupe Section
+createSection("💵 MONEY DUPE", "💰", UDim2.new(0, 4, 0, yPos))
+yPos = yPos + 28
+
+createButton("💵 Money v1 (Fast)", UDim2.new(0, 4, 0, yPos),
+    Color3.fromRGB(34, 177, 76), dupeMoneyV1)
+yPos = yPos + 40
+
+createButton("💵 Money v2 (Very Fast)", UDim2.new(0, 4, 0, yPos),
+    Color3.fromRGB(34, 177, 76), dupeMoneyV2)
+yPos = yPos + 40
+
+-- Bibit Dupe Section
+createSection("🌱 BIBIT", "🌱", UDim2.new(0, 4, 0, yPos))
+yPos = yPos + 28
+
+createButton("🌱 Dupe Bibit", UDim2.new(0, 4, 0, yPos),
+    Color3.fromRGB(66, 133, 244), dupeBibitItems)
+yPos = yPos + 40
+
+-- Spawn Items Section
+createSection("📦 SPAWN ITEMS", "🎁", UDim2.new(0, 4, 0, yPos))
+yPos = yPos + 28
+
+createButton("📦 Dupe Spawn Items", UDim2.new(0, 4, 0, yPos),
+    Color3.fromRGB(66, 244, 133), dupeSpawnItems)
+yPos = yPos + 40
+
+-- All Items Section
+createSection("🎪 DUPE SEMUA", "🎊", UDim2.new(0, 4, 0, yPos))
+yPos = yPos + 28
+
+createButton("🎊 Dupe ALL", UDim2.new(0, 4, 0, yPos),
+    Color3.fromRGB(244, 133, 66), dupeAllItems)
+yPos = yPos + 40
+
+-- Settings Section
+createSection("⚙️ SETTINGS", "🔧", UDim2.new(0, 4, 0, yPos))
+yPos = yPos + 28
+
+createButton("🗑️ Clear Stats", UDim2.new(0, 4, 0, yPos),
+    Color3.fromRGB(244, 67, 54), clearStats)
+yPos = yPos + 40
+
+-- ===== DRAGGABLE TITLE BAR =====
+local dragging = false
+local dragStart = nil
+local startPos = nil
+
+local function clampPosition(x, y, frameSize)
+    local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
+    local maxX = viewport.X - frameSize.X
+    local maxY = viewport.Y - frameSize.Y
+    local nx = math.clamp(x, 0, math.max(0, maxX))
+    local ny = math.clamp(y, 0, math.max(0, maxY))
+    return nx, ny
+end
+
+titleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.AbsolutePosition
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        local newX = startPos.X + delta.X
+        local newY = startPos.Y + delta.Y
+        local nx, ny = clampPosition(newX, newY, mainFrame.AbsoluteSize)
+        mainFrame.Position = UDim2.new(0, nx, 0, ny)
+    end
+end)
+
+-- ===== HOTKEYS =====
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.F6 then
+        mainFrame.Visible = not mainFrame.Visible
+    elseif input.KeyCode == Enum.KeyCode.F7 then
+        dupeAllItems()
+    elseif input.KeyCode == Enum.KeyCode.F8 then
+        dupeMoneyV1()
+    elseif input.KeyCode == Enum.KeyCode.F9 then
+        dupeMoneyV2()
+    end
+end)
+
+-- ===== STARTUP =====
+
+print("✅ Scary Bazaar Dupe Script v2.3 Loaded!")
+print("📖 HOTKEYS: F6=Toggle | F7=Dupe All | F8=Money v1 | F9=Money v2")
+print("🎃 Enjoy!")
+
+updateStatus("Ready")
+updateAction("Script Loaded")
