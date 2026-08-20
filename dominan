@@ -1,0 +1,660 @@
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+-- ==========================================
+-- WAIT FOR ESSENTIALS
+-- ==========================================
+
+if not player then
+    player = Players:WaitForChild("LocalPlayer")
+end
+
+local playerGui = player:WaitForChild("PlayerGui")
+local spawnFolder = workspace:WaitForChild("SpawnBahan")
+
+task.wait(1) -- Tunggu 1 detik agar GUI siap
+
+-- ==========================================
+-- CONFIGURATION
+-- ==========================================
+
+local HEIGHT = 3
+local TELEPORT_DELAY = 2
+
+local materials = {
+    ["Jamur Kuburan"] = "Spawn_JamurKuburan",
+    ["Melati"] = "Spawn_Melati",
+    ["Gagak"] = "Spawn_Gagak",
+    ["Kepiting Sungai"] = "Spawn_KepitingSungai",
+    ["Dupa"] = "Spawn_Dupa",
+    ["Kemenyan"] = "Spawn_Kemenyan"
+}
+
+local materialOrder = {
+    "Spawn_JamurKuburan",
+    "Spawn_Melati",
+    "Spawn_Gagak",
+    "Spawn_KepitingSungai",
+    "Spawn_Dupa",
+    "Spawn_Kemenyan"
+}
+
+local selectedMaterials = {}
+
+for _, spawnName in pairs(materials) do
+    selectedMaterials[spawnName] = true
+end
+
+local autoTeleport = false
+local autoPrompt = false
+local minimized = false
+
+-- ==========================================
+-- REMOVE OLD GUI
+-- ==========================================
+
+local oldGui = playerGui:FindFirstChild("AutoFarmGUI")
+if oldGui then
+    oldGui:Destroy()
+end
+
+-- ==========================================
+-- SCREEN GUI
+-- ==========================================
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "AutoFarmGUI"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = false  -- Changed to false
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Parent = playerGui
+
+print("✓ GUI Created") -- Debug
+
+-- ==========================================
+-- MAIN FRAME
+-- ==========================================
+
+local main = Instance.new("Frame")
+main.Size = UDim2.fromOffset(360, 470)
+main.Position = UDim2.new(0.5, -180, 0.1, 20)  -- Moved higher to be visible
+main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+main.BorderSizePixel = 0
+main.Parent = gui
+
+print("✓ Main Frame Created") -- Debug
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 8)
+mainCorner.Parent = main
+
+-- ==========================================
+-- DRAGGABLE FUNCTIONALITY
+-- ==========================================
+
+local dragging = false
+local dragStart = nil
+local dragPos = nil
+
+main.InputBegan:Connect(function(input, gameProcessed)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        dragPos = main.Position
+    end
+end)
+
+game:GetService("UserInputService").InputChanged:Connect(function(input, gameProcessed)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        main.Position = UDim2.new(
+            dragPos.X.Scale,
+            dragPos.X.Offset + delta.X,
+            dragPos.Y.Scale,
+            dragPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+game:GetService("UserInputService").InputEnded:Connect(function(input, gameProcessed)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+-- ==========================================
+-- HEADER
+-- ==========================================
+
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1, 0, 0, 48)
+header.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+header.BorderSizePixel = 0
+header.Parent = main
+
+local headerCorner = Instance.new("UICorner")
+headerCorner.CornerRadius = UDim.new(0, 8)
+headerCorner.Parent = header
+
+-- ==========================================
+-- TITLE
+-- ==========================================
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -100, 1, 0)
+title.Position = UDim2.fromOffset(15, 0)
+title.BackgroundTransparency = 1
+title.Text = "NGepet by. SAPIGANTENG"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 16
+title.Font = Enum.Font.JetBrains
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = header
+
+-- ==========================================
+-- MINIMIZE BUTTON
+-- ==========================================
+
+local minimize = Instance.new("TextButton")
+minimize.Size = UDim2.fromOffset(35, 32)
+minimize.Position = UDim2.new(1, -80, 0, 8)
+minimize.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+minimize.Text = "−"
+minimize.TextColor3 = Color3.new(1, 1, 1)
+minimize.TextSize = 18
+minimize.Font = Enum.Font.JetBrains
+minimize.Parent = header
+
+local minimizeCorner = Instance.new("UICorner")
+minimizeCorner.CornerRadius = UDim.new(0, 6)
+minimizeCorner.Parent = minimize
+
+-- ==========================================
+-- CLOSE BUTTON
+-- ==========================================
+
+local close = Instance.new("TextButton")
+close.Size = UDim2.fromOffset(35, 32)
+close.Position = UDim2.new(1, -40, 0, 8)
+close.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+close.Text = "×"
+close.TextColor3 = Color3.new(1, 1, 1)
+close.TextSize = 20
+close.Font = Enum.Font.JetBrains
+close.Parent = header
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 6)
+closeCorner.Parent = close
+
+close.MouseButton1Click:Connect(function()
+    autoTeleport = false
+    autoPrompt = false
+    gui:Destroy()
+end)
+
+-- ==========================================
+-- CONTENT
+-- ==========================================
+
+local content = Instance.new("Frame")
+content.Size = UDim2.new(1, 0, 1, -48)
+content.Position = UDim2.fromOffset(0, 48)
+content.BackgroundTransparency = 1
+content.Parent = main
+
+-- ==========================================
+-- MATERIAL LABEL
+-- ==========================================
+
+local materialLabel = Instance.new("TextLabel")
+materialLabel.Size = UDim2.new(1, -30, 0, 20)
+materialLabel.Position = UDim2.fromOffset(15, 12)
+materialLabel.BackgroundTransparency = 1
+materialLabel.Text = "Select Materials:"
+materialLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+materialLabel.TextSize = 12
+materialLabel.Font = Enum.Font.JetBrains
+materialLabel.TextXAlignment = Enum.TextXAlignment.Left
+materialLabel.Parent = content
+
+-- ==========================================
+-- SELECT ALL BUTTON
+-- ==========================================
+
+local selectAll = Instance.new("TextButton")
+selectAll.Size = UDim2.new(0.5, -20, 0, 32)
+selectAll.Position = UDim2.fromOffset(15, 35)
+selectAll.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+selectAll.Text = "SELECT ALL"
+selectAll.TextColor3 = Color3.new(1, 1, 1)
+selectAll.TextSize = 12
+selectAll.Font = Enum.Font.JetBrains
+selectAll.Parent = content
+
+local selectCorner = Instance.new("UICorner")
+selectCorner.CornerRadius = UDim.new(0, 5)
+selectCorner.Parent = selectAll
+
+-- ==========================================
+-- CLEAR ALL BUTTON
+-- ==========================================
+
+local clearAll = Instance.new("TextButton")
+clearAll.Size = UDim2.new(0.5, -20, 0, 32)
+clearAll.Position = UDim2.new(0.5, 5, 0, 35)
+clearAll.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+clearAll.Text = "CLEAR ALL"
+clearAll.TextColor3 = Color3.new(1, 1, 1)
+clearAll.TextSize = 12
+clearAll.Font = Enum.Font.JetBrains
+clearAll.Parent = content
+
+local clearCorner = Instance.new("UICorner")
+clearCorner.CornerRadius = UDim.new(0, 5)
+clearCorner.Parent = clearAll
+
+-- ==========================================
+-- MATERIAL LIST
+-- ==========================================
+
+local list = Instance.new("ScrollingFrame")
+list.Size = UDim2.new(1, -30, 0, 165)
+list.Position = UDim2.fromOffset(15, 72)
+list.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+list.BorderSizePixel = 0
+list.ScrollBarThickness = 4
+list.CanvasSize = UDim2.new(0, 0, 0, 0)
+list.Parent = content
+
+local listCorner = Instance.new("UICorner")
+listCorner.CornerRadius = UDim.new(0, 5)
+listCorner.Parent = list
+
+local listPadding = Instance.new("UIPadding")
+listPadding.PaddingTop = UDim.new(0, 4)
+listPadding.PaddingLeft = UDim.new(0, 4)
+listPadding.PaddingRight = UDim.new(0, 4)
+listPadding.Parent = list
+
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 3)
+layout.Parent = list
+
+-- ==========================================
+-- CHECKBOX CREATION
+-- ==========================================
+
+local checkboxButtons = {}
+
+local function createCheckbox(displayName, spawnName)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, 0, 0, 32)
+    button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.TextSize = 12
+    button.Font = Enum.Font.JetBrains
+    button.TextXAlignment = Enum.TextXAlignment.Left
+    button.Parent = list
+    
+    checkboxButtons[spawnName] = button
+
+    local function update()
+        if selectedMaterials[spawnName] then
+            button.Text = "✓  " .. displayName
+            button.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        else
+            button.Text = "☐  " .. displayName
+            button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        end
+    end
+
+    button.MouseButton1Click:Connect(function()
+        selectedMaterials[spawnName] = not selectedMaterials[spawnName]
+        update()
+    end)
+
+    update()
+end
+
+for displayName, spawnName in pairs(materials) do
+    createCheckbox(displayName, spawnName)
+end
+
+layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    list.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 8)
+end)
+
+-- ==========================================
+-- UPDATE ALL CHECKBOXES
+-- ==========================================
+
+local function updateAllCheckboxes()
+    for displayName, spawnName in pairs(materials) do
+        local button = checkboxButtons[spawnName]
+        if button then
+            if selectedMaterials[spawnName] then
+                button.Text = "✓  " .. displayName
+                button.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+            else
+                button.Text = "☐  " .. displayName
+                button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            end
+        end
+    end
+end
+
+-- ==========================================
+-- SELECT ALL HANDLER
+-- ==========================================
+
+selectAll.MouseButton1Click:Connect(function()
+    for _, spawnName in pairs(materials) do
+        selectedMaterials[spawnName] = true
+    end
+    updateAllCheckboxes()
+end)
+
+-- ==========================================
+-- CLEAR ALL HANDLER
+-- ==========================================
+
+clearAll.MouseButton1Click:Connect(function()
+    for _, spawnName in pairs(materials) do
+        selectedMaterials[spawnName] = false
+    end
+    updateAllCheckboxes()
+end)
+
+-- ==========================================
+-- TELEPORT DELAY LABEL
+-- ==========================================
+
+local delayLabel = Instance.new("TextLabel")
+delayLabel.Size = UDim2.new(0.45, -15, 0, 22)
+delayLabel.Position = UDim2.fromOffset(15, 248)
+delayLabel.BackgroundTransparency = 1
+delayLabel.Text = "Teleport Delay:"
+delayLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+delayLabel.TextSize = 11
+delayLabel.Font = Enum.Font.JetBrains
+delayLabel.TextXAlignment = Enum.TextXAlignment.Left
+delayLabel.Parent = content
+
+-- ==========================================
+-- DELAY DROPDOWN
+-- ==========================================
+
+local delayDropdown = Instance.new("TextButton")
+delayDropdown.Size = UDim2.new(0.55, -15, 0, 32)
+delayDropdown.Position = UDim2.new(0.45, 0, 0, 244)
+delayDropdown.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+delayDropdown.Text = "1 sec ▼"
+delayDropdown.TextColor3 = Color3.new(1, 1, 1)
+delayDropdown.TextSize = 12
+delayDropdown.Font = Enum.Font.JetBrains
+delayDropdown.Parent = content
+
+local delayCorner = Instance.new("UICorner")
+delayCorner.CornerRadius = UDim.new(0, 5)
+delayCorner.Parent = delayDropdown
+
+-- ==========================================
+-- DELAY LIST
+-- ==========================================
+
+local delayList = Instance.new("ScrollingFrame")
+delayList.Size = UDim2.fromOffset(160, 140)
+delayList.Position = UDim2.new(1, -175, 0, 283)
+delayList.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+delayList.BorderSizePixel = 0
+delayList.ScrollBarThickness = 4
+delayList.Visible = false
+delayList.ZIndex = 100
+delayList.CanvasSize = UDim2.new(0, 0, 0, 0)
+delayList.Parent = content
+
+local delayListCorner = Instance.new("UICorner")
+delayListCorner.CornerRadius = UDim.new(0, 5)
+delayListCorner.Parent = delayList
+
+local delayLayout = Instance.new("UIListLayout")
+delayLayout.Padding = UDim.new(0, 2)
+delayLayout.Parent = delayList
+
+-- ==========================================
+-- DELAY OPTIONS
+-- ==========================================
+
+for i = 1, 10 do
+    local option = Instance.new("TextButton")
+    option.Size = UDim2.new(1, -6, 0, 28)
+    option.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    option.Text = tostring(i) .. " sec"
+    option.TextColor3 = Color3.new(1, 1, 1)
+    option.TextSize = 12
+    option.Font = Enum.Font.JetBrains
+    option.ZIndex = 101
+    option.Parent = delayList
+
+    local optionCorner = Instance.new("UICorner")
+    optionCorner.CornerRadius = UDim.new(0, 4)
+    optionCorner.Parent = option
+
+    option.MouseButton1Click:Connect(function()
+        TELEPORT_DELAY = i
+        delayDropdown.Text = tostring(i) .. " sec ▼"
+        delayList.Visible = false
+    end)
+end
+
+delayLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    delayList.CanvasSize = UDim2.new(0, 0, 0, delayLayout.AbsoluteContentSize.Y + 4)
+end)
+
+-- ==========================================
+-- TOGGLE DELAY DROPDOWN
+-- ==========================================
+
+delayDropdown.MouseButton1Click:Connect(function()
+    delayList.Visible = not delayList.Visible
+end)
+
+-- ==========================================
+-- TELEPORT STATUS
+-- ==========================================
+
+local teleportStatus = Instance.new("TextLabel")
+teleportStatus.Size = UDim2.new(1, -30, 0, 20)
+teleportStatus.Position = UDim2.fromOffset(15, 286)
+teleportStatus.BackgroundTransparency = 1
+teleportStatus.Text = "Teleport: OFF"
+teleportStatus.TextColor3 = Color3.fromRGB(150, 150, 150)
+teleportStatus.TextSize = 11
+teleportStatus.Font = Enum.Font.JetBrains
+teleportStatus.TextXAlignment = Enum.TextXAlignment.Left
+teleportStatus.Parent = content
+
+-- ==========================================
+-- TELEPORT TOGGLE BUTTON
+-- ==========================================
+
+local teleportToggle = Instance.new("TextButton")
+teleportToggle.Size = UDim2.new(1, -30, 0, 36)
+teleportToggle.Position = UDim2.fromOffset(15, 310)
+teleportToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+teleportToggle.Text = "AUTO TELEPORT: OFF"
+teleportToggle.TextColor3 = Color3.new(1, 1, 1)
+teleportToggle.TextSize = 12
+teleportToggle.Font = Enum.Font.JetBrains
+teleportToggle.Parent = content
+
+local teleportCorner = Instance.new("UICorner")
+teleportCorner.CornerRadius = UDim.new(0, 5)
+teleportCorner.Parent = teleportToggle
+
+-- ==========================================
+-- PROXIMITY STATUS
+-- ==========================================
+
+local promptStatus = Instance.new("TextLabel")
+promptStatus.Size = UDim2.new(1, -30, 0, 20)
+promptStatus.Position = UDim2.fromOffset(15, 354)
+promptStatus.BackgroundTransparency = 1
+promptStatus.Text = "Proximity Prompt: OFF"
+promptStatus.TextColor3 = Color3.fromRGB(150, 150, 150)
+promptStatus.TextSize = 11
+promptStatus.Font = Enum.Font.JetBrains
+promptStatus.TextXAlignment = Enum.TextXAlignment.Left
+promptStatus.Parent = content
+
+-- ==========================================
+-- PROXIMITY TOGGLE BUTTON
+-- ==========================================
+
+local promptToggle = Instance.new("TextButton")
+promptToggle.Size = UDim2.new(1, -30, 0, 36)
+promptToggle.Position = UDim2.fromOffset(15, 378)
+promptToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+promptToggle.Text = "AUTO PROXIMITY: OFF"
+promptToggle.TextColor3 = Color3.new(1, 1, 1)
+promptToggle.TextSize = 12
+promptToggle.Font = Enum.Font.JetBrains
+promptToggle.Parent = content
+
+local promptCorner = Instance.new("UICorner")
+promptCorner.CornerRadius = UDim.new(0, 5)
+promptCorner.Parent = promptToggle
+
+-- ==========================================
+-- TOGGLE TELEPORT HANDLER
+-- ==========================================
+
+teleportToggle.MouseButton1Click:Connect(function()
+    autoTeleport = not autoTeleport
+
+    if autoTeleport then
+        teleportToggle.Text = "AUTO TELEPORT: ON"
+        teleportToggle.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+        teleportStatus.Text = "Teleport: ON | Delay: " .. TELEPORT_DELAY .. "s"
+        teleportStatus.TextColor3 = Color3.fromRGB(200, 200, 200)
+    else
+        teleportToggle.Text = "AUTO TELEPORT: OFF"
+        teleportToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        teleportStatus.Text = "Teleport: OFF"
+        teleportStatus.TextColor3 = Color3.fromRGB(150, 150, 150)
+    end
+end)
+
+-- ==========================================
+-- TOGGLE PROXIMITY HANDLER
+-- ==========================================
+
+promptToggle.MouseButton1Click:Connect(function()
+    autoPrompt = not autoPrompt
+
+    if autoPrompt then
+        promptToggle.Text = "AUTO PROXIMITY: ON"
+        promptToggle.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+        promptStatus.Text = "Proximity Prompt: ON"
+        promptStatus.TextColor3 = Color3.fromRGB(200, 200, 200)
+    else
+        promptToggle.Text = "AUTO PROXIMITY: OFF"
+        promptToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        promptStatus.Text = "Proximity Prompt: OFF"
+        promptStatus.TextColor3 = Color3.fromRGB(150, 150, 150)
+    end
+end)
+
+-- ==========================================
+-- GET ROOT PART
+-- ==========================================
+
+local function getRootPart()
+    local character = player.Character
+    if not character then return nil end
+    return character:FindFirstChild("HumanoidRootPart")
+end
+
+-- ==========================================
+-- AUTO TELEPORT LOOP
+-- ==========================================
+
+task.spawn(function()
+    while gui.Parent do
+        if autoTeleport then
+            local rootPart = getRootPart()
+            if rootPart then
+                for _, spawnName in ipairs(materialOrder) do
+                    if not autoTeleport then break end
+                    if selectedMaterials[spawnName] then
+                        for _, item in ipairs(spawnFolder:GetChildren()) do
+                            if not autoTeleport then break end
+                            if item.Name == spawnName and item.Parent then
+                                local success, cf = pcall(function()
+                                    return item:GetPivot()
+                                end)
+                                if success and cf then
+                                    rootPart.CFrame = cf + Vector3.new(0, HEIGHT, 0)
+                                    task.wait(TELEPORT_DELAY)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        task.wait(0.2)
+    end
+end)
+
+-- ==========================================
+-- AUTO PROXIMITY LOOP
+-- ==========================================
+
+task.spawn(function()
+    while gui.Parent do
+        if autoPrompt then
+            local rootPart = getRootPart()
+            if rootPart then
+                for _, instance in ipairs(workspace:GetDescendants()) do
+                    if not autoPrompt then break end
+                    if instance:IsA("ProximityPrompt") then
+                        local targetPart = instance.Parent
+                        if targetPart and targetPart:IsA("BasePart") and rootPart.Parent then
+                            local distance = (targetPart.Position - rootPart.Position).Magnitude
+                            if distance <= instance.MaxActivationDistance then
+                                pcall(function()
+                                    instance:InputHoldBegin()
+                                    task.wait(instance.HoldDuration)
+                                    instance:InputHoldEnd()
+                                end)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        task.wait(0.1)
+    end
+end)
+
+-- ==========================================
+-- MINIMIZE / RESTORE HANDLER
+-- ==========================================
+
+minimize.MouseButton1Click:Connect(function()
+    minimized = not minimized
+
+    if minimized then
+        content.Visible = false
+        main.Size = UDim2.fromOffset(360, 48)
+        minimize.Text = "□"
+    else
+        content.Visible = true
+        main.Size = UDim2.fromOffset(360, 470)
+        minimize.Text = "−"
+    end
+end)
+
+print("✓ GUI Script Fully Loaded!")
