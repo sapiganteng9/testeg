@@ -1,0 +1,198 @@
+-- letakkan di ServerScriptService
+-- Fungsi: teleport pemain & auto-restock rak
+local Replicated = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
+local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+-- Folder event di ReplicatedStorage (akan dibuat jika belum ada)
+local eventsFolder = Replicated:FindFirstChild("RackEvents")
+if not eventsFolder then
+    eventsFolder = Instance.new("Folder")
+    eventsFolder.Name = "RackEvents"
+    eventsFolder.Parent = Replicated
+end
+
+local TeleportEvent = eventsFolder:FindFirstChild("TeleportToRack") or Instance.new("RemoteEvent")
+TeleportEvent.Name = "TeleportToRack"
+TeleportEvent.Parent = eventsFolder
+
+local RequestRestock = eventsFolder:FindFirstChild("RequestRestock") or Instance.new("RemoteEvent")
+RequestRestock.Name = "RequestRestock"
+RequestRestock.Parent = eventsFolder
+
+-- Folder tempat template item (siapkan model item di sini, mis. ServerStorage/RackItems/Kemenyan)
+local ITEM_FOLDER = ServerStorage:WaitForChild("RackItems")
+
+-- Root tempat mencari rak (sesuaikan dengan struktur workspace-mu)
+local searchRoots = {
+    Workspace:FindFirstChild("rak"),
+    Workspace:FindFirstChild("KiosAktif"),
+    Workspace:FindFirstChild("balai"),
+}
+
+-- Mapping nama model rak -> nama item template di ServerStorage/RackItems
+local RACK_ITEM_MAP = {
+    ["RakKemenyan"] = "Kemenyan",
+    ["RakDupa"] = "Dupa",
+    ["RakMelati"] = "Melati",
+    -- tambahkan sesuai nama di workspace dan nama template item
+}
+
+-- cooldown supaya restock tidak spam (per rak, detik)
+local RESTOCK_COOLDOWN = 10
+local lastRestock = {}
+
+-- util: cari model/rak dengan nama (rekursif melalui searchRoots)
+local function findRackModelByName(name)
+    for _, root in ipairs(searchRoots) do
+        if root then
+            for _, desc in ipairs(root:GetDescendants()) do
+                if desc.Name == name and desc:IsA("Model") then
+                    return desc
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- util: dapatkan CFrame spawn pada rak
+local function getRackSpawnCFrame(rackModel)
+    -- Prioritas: part bernama "SpawnPoint" -> PrimaryPart -> part pertama di model
+    local spawnPart = rackModel:FindFirstChild("SpawnPoint", true)
+    if spawnPart and spawnPart:IsA("BasePart") then
+        return spawnPart.CFrame
+    end
+    if rackModel.PrimaryPart and rackModel.PrimaryPart:IsA("BasePart") then
+        return rackModel.PrimaryPart.CFrame
+    end
+    for _, v in ipairs(rackModel:GetDescendants()) do
+        if v:IsA("BasePart") then
+            return v.CFrame
+        end
+    end
+    return nil
+end
+
+-- util: hitung apakah rak sudah punya item (cek apakah ada anak model/part dengan nama itemName)
+local function rackHasItem(rackModel, itemName)
+    for _, d in ipairs(rackModel:GetDescendants()) do
+        if d.Name == itemName then
+            return true
+        end
+    end
+    return false
+end
+
+-- restock satu rak (aman, respect cooldown)
+local function restockRack(rackModel, itemName)
+    if not rackModel or not itemName then return false, "invalid" end
+    local id = rackModel:GetFullName()
+    local now = os.time()
+    if lastRestock[id] and now - lastRestock[id] < RESTOCK_COOLDOWN then
+        return false, "cooldown"
+    end
+    if rackHasItem(rackModel, itemName) then
+        lastRestock[id] = now
+        return false, "already"
+    end
+
+    local template = ITEM_FOLDER:FindFirstChild(itemName)
+    if not template then
+        return false, "no_template"
+    end
+
+    local spawnCFrame = getRackSpawnCFrame(rackModel)
+    if not spawnCFrame then
+        return false, "no_spawn"
+    end
+
+    -- clone dan taruh di rak
+    local clone = template:Clone()
+    clone.Name = itemName
+    clone.Parent = rackModel
+
+    if clone:IsA("Model") then
+        -- pastikan PrimaryPart
+        if not clone.PrimaryPart then
+            -- coba set primary ke part pertama
+            for _, p in ipairs(clone:GetDescendants()) do
+                if p:IsA("BasePart") then
+                    clone.PrimaryPart = p
+                    break
+                end
+            end
+        end
+        if clone.PrimaryPart then
+            clone:SetPrimaryPartCFrame(spawnCFrame + Vector3.new(0, 1.5, 0))
+        else
+            -- jika tidak ada primary, pindahkan semua parts relatif
+            for _, p in ipairs(clone:GetDescendants()) do
+                if p:IsA("BasePart") then
+                    p.CFrame = spawnCFrame + Vector3.new(0, 1.5, 0)
+                    break
+                end
+            end
+        end
+    elseif clone:IsA("BasePart") then
+        clone.CFrame = spawnCFrame + Vector3.new(0, 1.5, 0)
+    end
+
+    lastRestock[id] = now
+    return true, "restocked"
+end
+
+-- restock by rack name (menggunakan mapping terlebih dahulu)
+local function restockByRackName(rackName)
+    local rackModel = findRackModelByName(rackName)
+    if not rackModel then return false, "not_found" end
+    local itemName = RACK_ITEM_MAP[rackModel.Name] or rackName -- fallback: gunakan nama yang sama
+    return restockRack(rackModel, itemName)
+end
+
+-- teleport handler dari client
+TeleportEvent.OnServerEvent:Connect(function(player, rackName)
+    if type(rackName) ~= "string" then return end
+    local rackModel = findRackModelByName(rackName)
+    if not rackModel then
+        -- bisa kirim feedback ke client via RemoteEvent lain; di contoh ini kita cukup return
+        return
+    end
+    local spawnCFrame = getRackSpawnCFrame(rackModel)
+    if not spawnCFrame then return end
+
+    local char = player.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    -- Teleport tepat di depan rak (offset agar player tidak terjebak)
+    local targetCFrame = spawnCFrame + (spawnCFrame.LookVector * -2) + Vector3.new(0, 3, 0)
+    -- safety: pastikan not teleport ke dalam tanah/walls sederhana: gunakan raycast (sederhana)
+    hrp.CFrame = targetCFrame
+end)
+
+-- request restock dari client (mis. saat tas kosong)
+RequestRestock.OnServerEvent:Connect(function(player, rackName)
+    if type(rackName) ~= "string" then return end
+    restockByRackName(rackName)
+end)
+
+-- Periodic auto restock: cek semua mapping tiap X detik
+spawn(function()
+    while true do
+        for rackModelName, itemName in pairs(RACK_ITEM_MAP) do
+            local rackModel = findRackModelByName(rackModelName)
+            if rackModel then
+                if not rackHasItem(rackModel, itemName) then
+                    restockRack(rackModel, itemName)
+                end
+            end
+        end
+        wait(30) -- interval restock, sesuaikan
+    end
+end)
+
+print("[RackManager] siap: teleport & auto restock aktif.")
