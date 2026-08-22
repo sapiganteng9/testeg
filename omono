@@ -1,0 +1,309 @@
+-- Auto Teleport Script untuk Kios Aktif
+-- Script ini akan otomatis teleport ke lokasi Rak dan Meja Makan dengan jeda 5 detik
+-- by. SAPIGANTENG
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+-- Konfigurasi
+local TELEPORT_DELAY = 5 -- Jeda 5 detik
+local isActive = false
+local selectedTargets = {}
+
+-- Daftar lokasi Rak
+local RAK_LOCATIONS = {
+    "RakDupa",
+    "RakKemenyan",
+    "RakKepitiing",
+    "RakMelati",
+}
+
+-- Daftar lokasi Meja Makan
+local MEJA_MAKAN_LOCATIONS = {
+    "JamurKuburan",
+    "PisangRajaRebus",
+    "SateGagak",
+    "SateKepiting",
+    "TumisBamboja",
+}
+
+-- Fungsi untuk membuat GUI
+local function createGui()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "AutoTeleportGui"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = player:WaitForChild("PlayerGui")
+    
+    -- Main Frame
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, 400, 0, 620)
+    mainFrame.Position = UDim2.new(0.5, -200, 0.5, -310)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    
+    -- Judul
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Name = "Title"
+    titleLabel.Size = UDim2.new(1, 0, 0, 40)
+    titleLabel.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.TextSize = 20
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.Text = "Auto Teleport Kios"
+    titleLabel.BorderSizePixel = 0
+    titleLabel.Parent = mainFrame
+    
+    -- Watermark
+    local watermarkLabel = Instance.new("TextLabel")
+    watermarkLabel.Name = "Watermark"
+    watermarkLabel.Size = UDim2.new(1, 0, 0, 20)
+    watermarkLabel.Position = UDim2.new(0, 0, 0, 40)
+    watermarkLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    watermarkLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+    watermarkLabel.TextSize = 12
+    watermarkLabel.Font = Enum.Font.GothamBold
+    watermarkLabel.Text = "by. SAPIGANTENG"
+    watermarkLabel.BorderSizePixel = 0
+    watermarkLabel.Parent = mainFrame
+    
+    -- Toggle Button
+    local toggleButton = Instance.new("TextButton")
+    toggleButton.Name = "ToggleButton"
+    toggleButton.Size = UDim2.new(0, 150, 0, 40)
+    toggleButton.Position = UDim2.new(0.5, -75, 0, 70)
+    toggleButton.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
+    toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggleButton.TextSize = 16
+    toggleButton.Font = Enum.Font.GothamBold
+    toggleButton.Text = "OFF"
+    toggleButton.BorderSizePixel = 0
+    toggleButton.Parent = mainFrame
+    
+    -- Label Rak
+    local rakLabel = Instance.new("TextLabel")
+    rakLabel.Name = "RakLabel"
+    rakLabel.Size = UDim2.new(1, -20, 0, 25)
+    rakLabel.Position = UDim2.new(0, 10, 0, 120)
+    rakLabel.BackgroundTransparency = 1
+    rakLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    rakLabel.TextSize = 14
+    rakLabel.Font = Enum.Font.Gotham
+    rakLabel.Text = "Pilih Rak:"
+    rakLabel.TextXAlignment = Enum.TextXAlignment.Left
+    rakLabel.Parent = mainFrame
+    
+    -- Scroll Frame untuk Rak
+    local rakScroll = Instance.new("ScrollingFrame")
+    rakScroll.Name = "RakScroll"
+    rakScroll.Size = UDim2.new(1, -20, 0, 120)
+    rakScroll.Position = UDim2.new(0, 10, 0, 145)
+    rakScroll.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    rakScroll.BorderColor3 = Color3.fromRGB(60, 60, 60)
+    rakScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    rakScroll.Parent = mainFrame
+    
+    -- Label Meja Makan
+    local mejaLabel = Instance.new("TextLabel")
+    mejaLabel.Name = "MejaLabel"
+    mejaLabel.Size = UDim2.new(1, -20, 0, 25)
+    mejaLabel.Position = UDim2.new(0, 10, 0, 275)
+    mejaLabel.BackgroundTransparency = 1
+    mejaLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    mejaLabel.TextSize = 14
+    mejaLabel.Font = Enum.Font.Gotham
+    mejaLabel.Text = "Pilih Meja Makan:"
+    mejaLabel.TextXAlignment = Enum.TextXAlignment.Left
+    mejaLabel.Parent = mainFrame
+    
+    -- Scroll Frame untuk Meja Makan
+    local mejaScroll = Instance.new("ScrollingFrame")
+    mejaScroll.Name = "MejaScroll"
+    mejaScroll.Size = UDim2.new(1, -20, 0, 120)
+    mejaScroll.Position = UDim2.new(0, 10, 0, 300)
+    mejaScroll.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    mejaScroll.BorderColor3 = Color3.fromRGB(60, 60, 60)
+    mejaScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    mejaScroll.Parent = mainFrame
+    
+    -- Buat checkbox untuk Rak
+    local rakCheckboxes = {}
+    for i, rakName in ipairs(RAK_LOCATIONS) do
+        local checkbox = Instance.new("TextButton")
+        checkbox.Name = rakName
+        checkbox.Size = UDim2.new(1, -10, 0, 25)
+        checkbox.Position = UDim2.new(0, 5, 0, (i-1) * 30)
+        checkbox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        checkbox.TextColor3 = Color3.fromRGB(200, 200, 200)
+        checkbox.TextSize = 12
+        checkbox.Font = Enum.Font.Gotham
+        checkbox.Text = "☐ " .. rakName
+        checkbox.BorderColor3 = Color3.fromRGB(100, 100, 100)
+        checkbox.Parent = rakScroll
+        
+        rakCheckboxes[rakName] = {
+            button = checkbox,
+            selected = false
+        }
+        
+        checkbox.MouseButton1Click:Connect(function()
+            rakCheckboxes[rakName].selected = not rakCheckboxes[rakName].selected
+            if rakCheckboxes[rakName].selected then
+                checkbox.Text = "☑ " .. rakName
+                selectedTargets[rakName] = true
+            else
+                checkbox.Text = "☐ " .. rakName
+                selectedTargets[rakName] = nil
+            end
+        end)
+    end
+    
+    -- Update canvas size untuk Rak
+    rakScroll.CanvasSize = UDim2.new(0, 0, 0, #RAK_LOCATIONS * 30)
+    
+    -- Buat checkbox untuk Meja Makan
+    local mejaCheckboxes = {}
+    for i, mejaName in ipairs(MEJA_MAKAN_LOCATIONS) do
+        local checkbox = Instance.new("TextButton")
+        checkbox.Name = mejaName
+        checkbox.Size = UDim2.new(1, -10, 0, 25)
+        checkbox.Position = UDim2.new(0, 5, 0, (i-1) * 30)
+        checkbox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        checkbox.TextColor3 = Color3.fromRGB(200, 200, 200)
+        checkbox.TextSize = 12
+        checkbox.Font = Enum.Font.Gotham
+        checkbox.Text = "☐ " .. mejaName
+        checkbox.BorderColor3 = Color3.fromRGB(100, 100, 100)
+        checkbox.Parent = mejaScroll
+        
+        mejaCheckboxes[mejaName] = {
+            button = checkbox,
+            selected = false
+        }
+        
+        checkbox.MouseButton1Click:Connect(function()
+            mejaCheckboxes[mejaName].selected = not mejaCheckboxes[mejaName].selected
+            if mejaCheckboxes[mejaName].selected then
+                checkbox.Text = "☑ " .. mejaName
+                selectedTargets[mejaName] = true
+            else
+                checkbox.Text = "☐ " .. mejaName
+                selectedTargets[mejaName] = nil
+            end
+        end)
+    end
+    
+    -- Update canvas size untuk Meja Makan
+    mejaScroll.CanvasSize = UDim2.new(0, 0, 0, #MEJA_MAKAN_LOCATIONS * 30)
+    
+    -- Status Label
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Name = "StatusLabel"
+    statusLabel.Size = UDim2.new(1, -20, 0, 30)
+    statusLabel.Position = UDim2.new(0, 10, 1, -40)
+    statusLabel.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    statusLabel.TextColor3 = Color3.fromRGB(100, 200, 100)
+    statusLabel.TextSize = 12
+    statusLabel.Font = Enum.Font.Gotham
+    statusLabel.Text = "Status: Siap"
+    statusLabel.TextWrapped = true
+    statusLabel.Parent = mainFrame
+    
+    -- Toggle Function
+    toggleButton.MouseButton1Click:Connect(function()
+        isActive = not isActive
+        if isActive then
+            toggleButton.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+            toggleButton.Text = "ON"
+            statusLabel.Text = "Status: Berjalan..."
+        else
+            toggleButton.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
+            toggleButton.Text = "OFF"
+            statusLabel.Text = "Status: Siap"
+        end
+    end)
+    
+    return screenGui, statusLabel
+end
+
+-- Fungsi untuk mencari lokasi di Kios
+local function findLocationInKios(locationName)
+    local kios = workspace:FindFirstChild("KiosAktif")
+    if not kios then return nil end
+    
+    local function searchInFolder(folder)
+        for _, child in ipairs(folder:GetChildren()) do
+            if child.Name == locationName then
+                if child:IsA("BasePart") then
+                    return child
+                elseif child:IsA("Folder") or child:IsA("Model") then
+                    local part = searchInFolder(child)
+                    if part then return part end
+                end
+            end
+            if child:IsA("Folder") or child:IsA("Model") then
+                local part = searchInFolder(child)
+                if part then return part end
+            end
+        end
+        return nil
+    end
+    
+    return searchInFolder(kios)
+end
+
+-- Fungsi untuk teleport
+local function teleportToLocation(locationName)
+    local location = findLocationInKios(locationName)
+    if location then
+        humanoidRootPart.CFrame = location.CFrame + Vector3.new(0, 3, 0)
+        return true
+    end
+    return false
+end
+
+-- Fungsi untuk mendapatkan daftar target yang dipilih
+local function getSelectedTargets()
+    local targets = {}
+    for target, _ in pairs(selectedTargets) do
+        table.insert(targets, target)
+    end
+    return targets
+end
+
+-- Main Loop
+local lastTeleportTime = 0
+RunService.Heartbeat:Connect(function()
+    if isActive then
+        local now = tick()
+        if now - lastTeleportTime >= TELEPORT_DELAY then
+            local targets = getSelectedTargets()
+            if #targets > 0 then
+                local randomTarget = targets[math.random(1, #targets)]
+                if teleportToLocation(randomTarget) then
+                    print("Teleported to: " .. randomTarget)
+                else
+                    print("Failed to find location: " .. randomTarget)
+                end
+                lastTeleportTime = now
+            end
+        end
+    end
+end)
+
+-- Update character ketika player respawn
+player.CharacterAdded:Connect(function(newCharacter)
+    character = newCharacter
+    humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+end)
+
+-- Buat GUI
+local gui, statusLabel = createGui()
+print("Auto Teleport Script loaded! by. SAPIGANTENG")
+print("Silakan pilih lokasi dan tekan tombol ON")
