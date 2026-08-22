@@ -1,0 +1,174 @@
+-- AutoRestock_Siang.lua
+-- Letakkan di ServerScriptService
+-- Restock hanya ketika isSiang() == true dan ReplicatedStorage.RestockEnabled == true
+
+local RunService = game:GetService("RunService")
+local ServerStorage = game:GetService("ServerStorage")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
+
+-- CONFIG: sesuaikan lokasi root rak di workspace
+local RACK_ROOT = workspace:FindFirstChild("rak") or workspace:FindFirstChild("KiosAktif") or workspace
+
+-- Nama child yang menandai sebuah rak
+local RACK_IDENTIFIER_CHILD_NAME = "RakPrompt"
+local STOCK_FOLDER_NAME = "Stock"
+
+-- Folder template di ServerStorage; isi dengan model barang yang ingin di-restock
+local TEMPLATE_FOLDER = ServerStorage:FindFirstChild("RackTemplates")
+if not TEMPLATE_FOLDER then
+    warn("AutoRestock_Siang: Tidak menemukan ServerStorage.RackTemplates. Buat folder RackTemplates di ServerStorage berisi template item.")
+    -- lanjutkan saja; fungsi restock akan gagal mencari template
+end
+
+local RESTOCK_INTERVAL = 10         -- cek tiap N detik
+local MAX_STOCK = 5                 -- jumlah maksimum per rak
+local RESTOCK_DELAY_PER_ITEM = 0.08 -- jeda antar spawn
+
+-- ADMIN CONFIG: ganti dengan UserId admin atau pakai creator
+local ADMINS = {
+    [game.CreatorId] = true -- pemilik game otomatis
+    -- tambahkan: [12345678] = true
+}
+
+-- Remote & Value di ReplicatedStorage
+local remotesFolder = ReplicatedStorage:FindFirstChild("Remotes")
+if not remotesFolder then
+    remotesFolder = Instance.new("Folder")
+    remotesFolder.Name = "Remotes"
+    remotesFolder.Parent = ReplicatedStorage
+end
+
+local RestockToggleEvent = remotesFolder:FindFirstChild("RestockToggle")
+if not RestockToggleEvent then
+    RestockToggleEvent = Instance.new("RemoteEvent")
+    RestockToggleEvent.Name = "RestockToggle"
+    RestockToggleEvent.Parent = remotesFolder
+end
+
+-- BoolValue global untuk status restock (tersedia di client & server)
+local RestockEnabled = ReplicatedStorage:FindFirstChild("RestockEnabled")
+if not RestockEnabled then
+    RestockEnabled = Instance.new("BoolValue")
+    RestockEnabled.Name = "RestockEnabled"
+    RestockEnabled.Value = true -- default: aktif
+    RestockEnabled.Parent = ReplicatedStorage
+end
+
+-- Helper: cek apakah sekarang 'siang'
+local function isSiang()
+    -- 1) Cek ReplicatedStorage.IsSiang (BoolValue) jika ada
+    local v = ReplicatedStorage:FindFirstChild("IsSiang")
+    if v and v:IsA("BoolValue") then
+        return v.Value
+    end
+
+    -- 2) Cek ReplicatedStorage.DayPhase (StringValue) jika ada
+    local phase = ReplicatedStorage:FindFirstChild("DayPhase")
+    if phase and phase:IsA("StringValue") then
+        local s = phase.Value:lower()
+        return s == "siang" or s == "day"
+    end
+
+    -- 3) Fallback ke Lighting.ClockTime (6..18 dianggap siang)
+    local ct = Lighting.ClockTime or 12
+    return ct >= 6 and ct < 18
+end
+
+-- Helper: temukan semua rak
+local function findRacks()
+    local racks = {}
+    local searchRoot = RACK_ROOT or workspace
+    for _, obj in ipairs(searchRoot:GetDescendants()) do
+        if (obj:IsA("Model") or obj:IsA("Folder")) and obj:FindFirstChild(RACK_IDENTIFIER_CHILD_NAME) then
+            table.insert(racks, obj)
+        end
+    end
+    return racks
+end
+
+local function getStockFolder(rack)
+    local f = rack:FindFirstChild(STOCK_FOLDER_NAME)
+    if f and (f:IsA("Folder") or f:IsA("Model")) then
+        return f
+    end
+    local newF = Instance.new("Folder")
+    newF.Name = STOCK_FOLDER_NAME
+    newF.Parent = rack
+    return newF
+end
+
+local function getTemplateForRack(rack)
+    if not TEMPLATE_FOLDER then return nil end
+    local tv = rack:FindFirstChild("TemplateName")
+    if tv and tv:IsA("StringValue") and tv.Value ~= "" then
+        local t = TEMPLATE_FOLDER:FindFirstChild(tv.Value)
+        if t then return t end
+    end
+    -- cari template sesuai substring nama rak
+    for _, t in ipairs(TEMPLATE_FOLDER:GetChildren()) do
+        if string.find(string.lower(rack.Name), string.lower(t.Name)) then
+            return t
+        end
+    end
+    -- fallback ke Default jika ada
+    local default = TEMPLATE_FOLDER:FindFirstChild("Default")
+    if default then return default end
+    return nil
+end
+
+local function restockRack(rack)
+    if not rack or not rack.Parent then return end
+    local stockFolder = getStockFolder(rack)
+    local current = #stockFolder:GetChildren()
+    if current >= MAX_STOCK then return end
+
+    local template = getTemplateForRack(rack)
+    if not template then
+        warn("AutoRestock_Siang: tidak menemukan template untuk rak "..rack:GetFullName())
+        return
+    end
+
+    for i = current + 1, MAX_STOCK do
+        local clone = template:Clone()
+        clone.Parent = stockFolder
+
+        -- jika model dengan PrimaryPart dan rak punya PrimaryPart, posisikan relatif
+        if clone:IsA("Model") and clone.PrimaryPart and rack.PrimaryPart then
+            local offset = CFrame.new(0, 0.5 + (i-1)*0.35, -1)
+            clone:SetPrimaryPartCFrame(rack.PrimaryPart.CFrame * offset)
+        end
+        task.wait(RESTOCK_DELAY_PER_ITEM)
+    end
+end
+
+-- RemoteEvent handler: only admin can toggle
+RestockToggleEvent.OnServerEvent:Connect(function(player, desired)
+    if not player or not player.UserId then return end
+    if not ADMINS[player.UserId] then
+        warn(("RestockToggle: %s (%d) mencoba toggle tapi bukan admin"):format(player.Name, player.UserId))
+        return
+    end
+    if type(desired) ~= "boolean" then return end
+    RestockEnabled.Value = desired
+    print(("RestockEnabled set to %s by %s"):format(tostring(desired), player.Name))
+end)
+
+-- Loop utama
+task.spawn(function()
+    while true do
+        local ok, err = pcall(function()
+            if RestockEnabled.Value and isSiang() then
+                local racks = findRacks()
+                for _, r in ipairs(racks) do
+                    pcall(restockRack, r)
+                end
+            end
+        end)
+        if not ok then
+            warn("AutoRestock_Siang loop error: "..tostring(err))
+        end
+        task.wait(RESTOCK_INTERVAL)
+    end
+end)
